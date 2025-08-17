@@ -28,7 +28,7 @@ st.set_page_config(
 # タイトル表示
 st.markdown(f"## {ct.APP_NAME}")
 
-# 初期処理
+# 初期処理　記録処理。各モードのフラグを初期化し、OpenAIのオブジェクトとLLMを作成
 if "messages" not in st.session_state:
     st.session_state.messages = []
     st.session_state.start_flg = False
@@ -49,7 +49,7 @@ if "messages" not in st.session_state:
     st.session_state.problem = ""
     
     st.session_state.openai_obj = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
-    st.session_state.llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.5)
+    st.session_state.llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.9)
     st.session_state.memory = ConversationSummaryBufferMemory(
         llm=st.session_state.llm,
         max_token_limit=1000,
@@ -138,8 +138,17 @@ if st.session_state.start_flg:
     # 「ディクテーション」ボタン押下時か、「英会話開始」ボタン押下時か、チャット送信時
     if st.session_state.mode == ct.MODE_3 and (st.session_state.dictation_button_flg or st.session_state.dictation_count == 0 or st.session_state.dictation_chat_message):
         if st.session_state.dictation_first_flg:
-            st.session_state.chain_create_problem = ft.create_chain(ct.SYSTEM_TEMPLATE_CREATE_PROBLEM)
-            st.session_state.dictation_first_flg = False
+            #難易度に応じてプロンプトを変更##########################################################
+            if st.session_state.englv == ct.ENGLISH_LEVEL_OPTION[0]:
+                st.session_state.chain_create_problem = ft.create_chain(ct.SYSTEM_TEMPLATE_CREATE_PROBLEM)
+                st.session_state.dictation_first_flg = False
+            elif st.session_state.englv == ct.ENGLISH_LEVEL_OPTION[1]:
+                st.session_state.chain_create_problem = ft.create_chain(ct.SYSTEM_TEMPLATE_CREATE_PROBLEM_INTERMEDIATE)
+                st.session_state.dictation_first_flg = False
+            elif st.session_state.englv == ct.ENGLISH_LEVEL_OPTION[2]:
+                st.session_state.chain_create_problem = ft.create_chain(ct.SYSTEM_TEMPLATE_CREATE_PROBLEM_ADVANCED)
+                st.session_state.dictation_first_flg = False
+
         # チャット入力以外
         if not st.session_state.chat_open_flg:
             with st.spinner('問題文生成中...'):
@@ -165,11 +174,24 @@ if st.session_state.start_flg:
             st.session_state.messages.append({"role": "user", "content": st.session_state.dictation_chat_message})
             
             with st.spinner('評価結果の生成中...'):
-                system_template = ct.SYSTEM_TEMPLATE_EVALUATION.format(
-                    llm_text=st.session_state.problem,
-                    user_text=st.session_state.dictation_chat_message
-                )
-                st.session_state.chain_evaluation = ft.create_chain(system_template)
+                if st.session_state.englv == ct.ENGLISH_LEVEL_OPTION[0]:
+                    system_template = ct.SYSTEM_TEMPLATE_EVALUATION_INTERMEDIATE.format(
+                        llm_text=st.session_state.problem,
+                        user_text=st.session_state.dictation_chat_message
+                    )
+                    st.session_state.chain_evaluation = ft.create_chain(system_template)
+                elif st.session_state.englv == ct.ENGLISH_LEVEL_OPTION[1]:
+                    system_template = ct.SYSTEM_TEMPLATE_EVALUATION_INTERMEDIATE.format(
+                        llm_text=st.session_state.problem,
+                        user_text=st.session_state.dictation_chat_message
+                    )
+                    st.session_state.chain_evaluation = ft.create_chain(system_template)
+                elif st.session_state.englv == ct.ENGLISH_LEVEL_OPTION[2]:
+                    system_template = ct.SYSTEM_TEMPLATE_EVALUATION_ADVANCED.format(
+                        llm_text=st.session_state.problem,
+                        user_text=st.session_state.dictation_chat_message
+                    )
+                    st.session_state.chain_evaluation = ft.create_chain(system_template)
                 # 問題文と回答を比較し、評価結果の生成を指示するプロンプトを作成
                 llm_response_evaluation = ft.create_evaluation()
             
@@ -234,7 +256,13 @@ if st.session_state.start_flg:
     # 「シャドーイング」ボタン押下時か、「英会話開始」ボタン押下時
     if st.session_state.mode == ct.MODE_2 and (st.session_state.shadowing_button_flg or st.session_state.shadowing_count == 0 or st.session_state.shadowing_audio_input_flg):
         if st.session_state.shadowing_first_flg:
-            st.session_state.chain_create_problem = ft.create_chain(ct.SYSTEM_TEMPLATE_CREATE_PROBLEM)
+            # 難易度に応じてプロンプトを変更
+            if st.session_state.englv == ct.ENGLISH_LEVEL_OPTION[0]:
+                st.session_state.chain_create_problem = ft.create_chain(ct.SYSTEM_TEMPLATE_CREATE_PROBLEM_INTERMEDIATE)
+            elif st.session_state.englv == ct.ENGLISH_LEVEL_OPTION[1]:
+                st.session_state.chain_create_problem = ft.create_chain(ct.SYSTEM_TEMPLATE_CREATE_PROBLEM_INTERMEDIATE)
+            elif st.session_state.englv == ct.ENGLISH_LEVEL_OPTION[2]:
+                st.session_state.chain_create_problem = ft.create_chain(ct.SYSTEM_TEMPLATE_CREATE_PROBLEM_ADVANCED)
             st.session_state.shadowing_first_flg = False
         
         if not st.session_state.shadowing_audio_input_flg:
@@ -264,11 +292,25 @@ if st.session_state.start_flg:
 
         with st.spinner('評価結果の生成中...'):
             if st.session_state.shadowing_evaluation_first_flg:
-                system_template = ct.SYSTEM_TEMPLATE_EVALUATION.format(
-                    llm_text=st.session_state.problem,
-                    user_text=audio_input_text
-                )
-                st.session_state.chain_evaluation = ft.create_chain(system_template)
+                # モードに応じてプロンプトを変更
+                if st.session_state.englv == ct.ENGLISH_LEVEL_OPTION[0]:
+                    system_template = ct.SYSTEM_TEMPLATE_EVALUATION_INTERMEDIATE.format(
+                        llm_text=st.session_state.problem,
+                        user_text=audio_input_text
+                    )
+                    st.session_state.chain_evaluation = ft.create_chain(system_template)
+                elif st.session_state.englv == ct.ENGLISH_LEVEL_OPTION[1]:
+                    system_template = ct.SYSTEM_TEMPLATE_EVALUATION_INTERMEDIATE.format(
+                        llm_text=st.session_state.problem,
+                        user_text=audio_input_text
+                    )
+                    st.session_state.chain_evaluation = ft.create_chain(system_template)
+                elif st.session_state.englv == ct.ENGLISH_LEVEL_OPTION[2]:
+                    system_template = ct.SYSTEM_TEMPLATE_EVALUATION_ADVANCED.format(
+                        llm_text=st.session_state.problem,
+                        user_text=audio_input_text
+                    )
+                    st.session_state.chain_evaluation = ft.create_chain(system_template)
                 st.session_state.shadowing_evaluation_first_flg = False
             # 問題文と回答を比較し、評価結果の生成を指示するプロンプトを作成
             llm_response_evaluation = ft.create_evaluation()
